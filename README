@@ -1,0 +1,19 @@
+TWI trawler
+
+- an ATTiny2313 based controller for Fischertechnik motors -
+
+
+ATTiny2313
+    
+                     _______
+               RST -|1  V 20|- VCC
+     DIR_B_R---PD0 -|2    19|- PB7 (SCL)---
+     DIR_B_L---PD1 -|3    18|-
+                   -|4    17|- PB5 (SDA)---
+                   -|5    16|- PB4 (PCINT4)---SW_A
+ENC_A---(INT0) PD2 -|6    15|- PB3 (PCINT3)---SW_B
+ENC_B---(INT1) PD3 -|7    14|- PB2 (OC0A)---PWM_A
+                   -|8    13|- PB1---DIR_A_R
+PWM_B---(OC0B) PD5 -|9    12|- PB0---DIR_A_L
+               GND -|10   11|-
+                    '-------'
