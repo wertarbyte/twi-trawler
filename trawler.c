@@ -194,6 +194,7 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 			return 1;
 		case CMD_ADDR_CALIB:
 			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;
+			motor[m_id].pos = POS_UNKNOWN;
 			motor[m_id].target = 0;
 			return 1;
 	}
