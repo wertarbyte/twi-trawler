@@ -14,29 +14,59 @@
 #define N_MOTORS 2
 
 #define POS_MAX ((uint32_t)0xFFFFFFFF - 1)
+#define POS_UNKNOWN ((uint32_t)0xFFFFFFFF)
 
 #define TWI_ADDRESS (~0xF7)
 
 struct motor_conf_t motor[N_MOTORS];
 
-static void check_bound_switches(uint8_t m_id) {
+static void check_encoder(uint8_t m_id) {
+	static uint8_t last[N_MOTORS];
+	uint8_t now;
+	switch(m_id) {
+		case 0:
+			now = (~PIN_SW_A_END & (1<<BIT_SW_A_END));
+			break;
+		case 1:
+			now = (~PIN_SW_B_END & (1<<BIT_SW_B_END));
+			break;
+	}
+	// just triggered
+	if (now && !last[m_id]) {
+		switch(motor[m_id].dir) {
+			case MOTOR_DIR_FORWARD:
+				motor[m_id].pos++;
+				break;
+			case MOTOR_DIR_BACK:
+				motor[m_id].pos--;
+				break;
+		}
+	}
+	last[m_id] = now;
+}
+
+static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	switch(m_id) {
 		case 0:
 			if ((~PIN_SW_A_ZERO & (1<<BIT_SW_A_ZERO))) {
 				motor[m_id].pos = 0;
-			} else if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
-				motor[m_id].pos = POS_MAX;
-			} else {
-				motor[m_id].pos = 1;
+			} else if (end_sw) {
+				if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
+					motor[m_id].pos = POS_MAX;
+				} else {
+					motor[m_id].pos = 1;
+				}
 			}
 			break;
 		case 1:
 			if ((~PIN_SW_B_ZERO & (1<<BIT_SW_B_ZERO))) {
 				motor[m_id].pos = 0;
-			} else if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
-				motor[m_id].pos = POS_MAX;
-			} else {
-				motor[m_id].pos = 1;
+			} else if (end_sw) {
+				if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
+					motor[m_id].pos = POS_MAX;
+				} else {
+					motor[m_id].pos = 1;
+				}
 			}
 			break;
 		default:
@@ -48,9 +78,18 @@ static void check_bound_switches(uint8_t m_id) {
 	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 	}
+	/* Did we finish a calibration sequence? */
+	if (motor[m_id].flags & MOTOR_FLAG_CALIBRATING) {
+		motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATING);
+		motor[m_id].flags |= MOTOR_FLAG_CALIBRATED;
+	}
 }
 
 static void check_target_direction(uint8_t m_id) {
+	if (motor[m_id].pos == POS_UNKNOWN && !(motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
+		return;
+	}
+
 	if (motor[m_id].target > motor[m_id].pos) {
 		motor[m_id].dir = MOTOR_DIR_FORWARD;
 	} else if (motor[m_id].target < motor[m_id].pos) {
@@ -67,9 +106,11 @@ static void set_motor(uint8_t m_id) {
 			motor_set_direction(m_id, mc->dir);
 			motor_set_speed(m_id, mc->speed);
 			break;
+		case MOTOR_MODE_ENCODER:
+			check_encoder(m_id);
 		case MOTOR_MODE_BOUNDED:
 			check_target_direction(m_id);
-			check_bound_switches(m_id);
+			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
 			motor_set_direction(m_id, mc->dir);
 			motor_set_speed(m_id, (mc->dir != MOTOR_DIR_STOPPED) ? 0xFF : 0x00);
 			break;
@@ -127,10 +168,11 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 	switch(cmd) {
 		case CMD_ADDR_MODE:
 			switch(data) {
+				case MOTOR_MODE_ENCODER:
 				case MOTOR_MODE_FREE:
 				case MOTOR_MODE_BOUNDED:
 					motor[m_id].speed = 0;
-					motor[m_id].pos = 1;
+					motor[m_id].pos = POS_UNKNOWN;
 					motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATED);
 					motor[m_id].dir = MOTOR_DIR_STOPPED;
 					motor[m_id].mode = data;
@@ -146,6 +188,10 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 		case CMD_ADDR_GOTO:
 			setByte(&twi_buf[0], sizeof(motor[m_id].target), data, counter);
 			if (counter == 3) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
+			return 1;
+		case CMD_ADDR_CALIB:
+			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;
+			motor[m_id].target = 0;
 			return 1;
 	}
 	return 0;

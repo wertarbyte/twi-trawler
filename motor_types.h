@@ -5,6 +5,7 @@ enum motor_mode_t {
 	MOTOR_MODE_UNDEF = 0,
 	MOTOR_MODE_FREE,
 	MOTOR_MODE_BOUNDED,
+	MOTOR_MODE_ENCODER,
 };
 
 enum motor_dir_t {
@@ -16,7 +17,8 @@ enum motor_dir_t {
 typedef uint32_t motor_pos_t;
 
 
-#define MOTOR_FLAG_CALIBRATED (1<<0)
+#define MOTOR_FLAG_CALIBRATED  (1<<0)
+#define MOTOR_FLAG_CALIBRATING (1<<1)
 
 struct motor_conf_t {
 	enum motor_mode_t mode;
