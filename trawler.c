@@ -129,14 +129,14 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 	return 0;
 }
 
-static uint8_t twiRead(uint8_t reg) {
+static uint8_t twiRead(uint8_t reg, uint8_t c) {
 	uint8_t d = 0;
-	twiReadCallback(reg, 0, &d);
+	twiReadCallback(reg, c, &d);
 	return d;
 }
 
-static void twiWrite(uint8_t reg, uint8_t val) {
-	twiWriteCallback(reg, 0, val);
+static void twiWrite(uint8_t reg, uint8_t c, uint8_t val) {
+	twiWriteCallback(reg, c, val);
 }
 
 int main(void) {

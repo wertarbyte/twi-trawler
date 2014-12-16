@@ -43,8 +43,8 @@ Change Activity:
 
 void    usiTwiSlaveInit( 
 	uint8_t,  	
-	uint8_t	(*onI2CReadFromRegister)(uint8_t reg),
-	void (*onI2CWriteToRegister)(uint8_t reg, uint8_t value)
+	uint8_t	(*onI2CReadFromRegister)(uint8_t reg, uint8_t count),
+	void (*onI2CWriteToRegister)(uint8_t reg, uint8_t count, uint8_t value)
  );
 
 #endif  // ifndef _USI_TWI_SLAVE_H_
