@@ -13,6 +13,8 @@
 
 #define N_MOTORS 2
 
+#define POS_MAX ((uint32_t)0xFFFFFFFF - 1)
+
 #define TWI_ADDRESS (~0xF7)
 
 struct motor_conf_t motor[N_MOTORS];
@@ -23,7 +25,7 @@ static void check_bound_switches(uint8_t m_id) {
 			if ((~PIN_SW_A_ZERO & (1<<BIT_SW_A_ZERO))) {
 				motor[m_id].pos = 0;
 			} else if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
-				motor[m_id].pos = 2;
+				motor[m_id].pos = POS_MAX;
 			} else {
 				motor[m_id].pos = 1;
 			}
@@ -32,7 +34,7 @@ static void check_bound_switches(uint8_t m_id) {
 			if ((~PIN_SW_B_ZERO & (1<<BIT_SW_B_ZERO))) {
 				motor[m_id].pos = 0;
 			} else if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
-				motor[m_id].pos = 2;
+				motor[m_id].pos = POS_MAX;
 			} else {
 				motor[m_id].pos = 1;
 			}
@@ -41,9 +43,9 @@ static void check_bound_switches(uint8_t m_id) {
 			return;
 
 	}
-	/* if we have reached at end, stop the motor */
-	if ( (motor[m_id].pos == 0 && motor[m_id].dir == MOTOR_DIR_BACK) ||
-	     (motor[m_id].pos == 2 && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
+	/* if we have reached the end, stop the motor */
+	if ( (motor[m_id].pos ==       0 && motor[m_id].dir == MOTOR_DIR_BACK) ||
+	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 	}
 }
@@ -78,6 +80,23 @@ static void set_motor(uint8_t m_id) {
 	}
 }
 
+static uint8_t getByte(uint8_t *b, size_t s, uint8_t count) {
+	if (count < s) {
+		return b[count];
+	} else {
+		return 0;
+	}
+}
+
+static void setByte(uint8_t *b, size_t s, uint8_t data, uint8_t count) {
+	if (count < s) {
+		b[count] = data;
+	}
+}
+
+#define TWI_BUF_SIZE 4
+static uint8_t twi_buf[TWI_BUF_SIZE];
+
 uint8_t twiReadCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
 	uint8_t m_id = addr & 0x01;
 	switch(addr & ~0x01) {
@@ -91,10 +110,12 @@ uint8_t twiReadCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
 			*data = motor[m_id].dir;
 			return 1;
 		case CMD_ADDR_GOTO:
-			*data = motor[m_id].target;
+			if (counter == 0) memcpy(&twi_buf, &motor[m_id].target, sizeof(motor[m_id].target));
+			*data = getByte(&twi_buf[0], sizeof(motor[m_id].target), counter);
 			return 1;
 		case CMD_ADDR_POS:
-			*data = motor[m_id].pos;
+			if (counter == 0) memcpy(&twi_buf, &motor[m_id].pos, sizeof(motor[m_id].pos));
+			*data = getByte(&twi_buf[0], sizeof(motor[m_id].pos), counter);
 			return 1;
 	}
 	return 0;
@@ -123,7 +144,8 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 			motor[m_id].dir = data;
 			return 1;
 		case CMD_ADDR_GOTO:
-			motor[m_id].target = data;
+			setByte(&twi_buf[0], sizeof(motor[m_id].target), data, counter);
+			if (counter == 3) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
 			return 1;
 	}
 	return 0;
