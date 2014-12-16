@@ -23,6 +23,9 @@ struct motor_conf_t motor[N_MOTORS];
 static void check_encoder(uint8_t m_id) {
 	static uint8_t last[N_MOTORS];
 	uint8_t now;
+	if (motor[m_id].pos == POS_UNKNOWN) {
+		return;
+	}
 	switch(m_id) {
 		case 0:
 			now = (~PIN_SW_A_END & (1<<BIT_SW_A_END));
