@@ -168,12 +168,12 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 	switch(cmd) {
 		case CMD_ADDR_MODE:
 			switch(data) {
-				case MOTOR_MODE_ENCODER:
 				case MOTOR_MODE_FREE:
 				case MOTOR_MODE_BOUNDED:
+				case MOTOR_MODE_ENCODER:
 					motor[m_id].speed = 0;
 					motor[m_id].pos = POS_UNKNOWN;
-					motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATED);
+					motor[m_id].flags = 0;
 					motor[m_id].dir = MOTOR_DIR_STOPPED;
 					motor[m_id].mode = data;
 					break;
