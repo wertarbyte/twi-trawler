@@ -43,6 +43,9 @@ static void check_encoder(uint8_t m_id) {
 			case MOTOR_DIR_BACK:
 				motor[m_id].pos--;
 				break;
+			case MOTOR_DIR_STOPPED:
+				/* strange, but we ignore this for now */
+				break;
 		}
 	}
 	last[m_id] = now;
