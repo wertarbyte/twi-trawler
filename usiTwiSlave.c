@@ -250,10 +250,23 @@ typedef enum
 static uint8_t                  slaveAddress;
 static volatile overflowState_t overflowState;
 
-static volatile void    *tx_window_start;
-static volatile void    *tx_window_end;
-static volatile void    *tx_window_cur;
-static volatile size_t  tx_window_offset;
+static volatile uint8_t got_addr;
+static volatile uint8_t next_addr;
+
+static volatile uint8_t access_addr;
+static volatile uint8_t access_counter;
+
+
+static uint8_t (*writeCallback)(uint8_t addr, uint8_t count, uint8_t *data);
+static uint8_t (*readCallback)(uint8_t addr, uint8_t count, uint8_t *data);
+
+void usiTwiSetWriteCallback( uint8_t (*wcb)(uint8_t addr, uint8_t count, uint8_t *data) ) {
+	writeCallback = wcb;
+}
+
+void usiTwiSetReadCallback( uint8_t (*rcb)(uint8_t addr, uint8_t count, uint8_t *data) ) {
+	readCallback = rcb;
+}
 
 /********************************************************************************
 
@@ -262,21 +275,11 @@ static volatile size_t  tx_window_offset;
 ********************************************************************************/
 
 
-
-// flushes the TWI buffers
-
-static
-void
-flushTwiBuffers(
-  void
-)
-{
-  tx_window_start = 0;
-  tx_window_end = 0;
-  tx_window_cur = 0;
-  tx_window_offset = 0;
-} // end flushTwiBuffers
-
+static void resetCallbackState(void) {
+	got_addr = 0;
+	access_addr = 0;
+	access_counter = 0;
+}
 
 
 /********************************************************************************
@@ -294,7 +297,7 @@ usiTwiSlaveInit(
 )
 {
 
-  flushTwiBuffers( );
+  resetCallbackState();
 
   slaveAddress = ownAddress;
 
@@ -334,16 +337,6 @@ usiTwiSlaveInit(
 
 } // end usiTwiSlaveInit
 
-
-void usiTwiSetTransmitWindow(
-  void *start,
-  size_t size
-)
-{
-  tx_window_start = start;
-  tx_window_end = start+size;
-  tx_window_cur = tx_window_start;
-}
 
 /********************************************************************************
 
@@ -436,6 +429,8 @@ Only disabled when waiting for a new Start Condition.
 ISR( USI_OVERFLOW_VECTOR )
 {
 
+  uint8_t data = 0;
+  uint8_t succ = 0;
   switch ( overflowState )
   {
 
@@ -452,9 +447,11 @@ ISR( USI_OVERFLOW_VECTOR )
         {
           overflowState = USI_SLAVE_REQUEST_DATA;
         } // end if
-        tx_window_cur = tx_window_start+tx_window_offset;
-        /* the next request will start at 0 again */
-        tx_window_offset = 0;
+
+        access_addr = next_addr;
+        next_addr = 0;
+	got_addr = 0;
+        access_counter = 0;
 
         SET_USI_TO_SEND_ACK( );
       }
@@ -479,16 +476,16 @@ ISR( USI_OVERFLOW_VECTOR )
     // copy data from buffer to USIDR and set USI to shift byte
     // next USI_SLAVE_REQUEST_REPLY_FROM_SEND_DATA
     case USI_SLAVE_SEND_DATA:
-      // Get data from Buffer
-      // FIXME Does not work - why oh why?!
-      if ( tx_window_cur >= tx_window_start && tx_window_cur < tx_window_end )
+      // Get data from callback
+      succ = readCallback( access_addr, access_counter, &data );
+      if (succ)
       {
-        USIDR = *(uint8_t*)(tx_window_cur);
-	tx_window_cur++;
+        USIDR = data;
+        access_counter++;
       }
       else
       {
-        // the buffer is empty
+        // nothing more to send
         SET_USI_TO_TWI_START_CONDITION_MODE( );
         return;
       } // end if
@@ -514,16 +511,20 @@ ISR( USI_OVERFLOW_VECTOR )
     // next USI_SLAVE_REQUEST_DATA
     case USI_SLAVE_GET_DATA_AND_SEND_ACK:
       overflowState = USI_SLAVE_REQUEST_DATA;
-      if ( tx_window_cur >= tx_window_start && tx_window_cur < tx_window_end )
-      {
-        *(uint8_t*)(tx_window_cur) = USIDR;
-	tx_window_cur++;
+      data = USIDR;
+      if (!got_addr) {
+        access_addr = data;
+        next_addr = data;
+        got_addr = 1;
+      } else {
+        succ = writeCallback( access_addr, access_counter, &data );
+        if (succ) {
+          access_counter++;
+        } else {
+          SET_USI_TO_TWI_START_CONDITION_MODE( );
+          return;
+        } // end if
       }
-      else
-      {
-        SET_USI_TO_TWI_START_CONDITION_MODE( );
-        return;
-      } // end if
 
       SET_USI_TO_SEND_ACK( );
       break;
