@@ -79,44 +79,71 @@ static void set_motor(uint8_t m_id) {
 }
 
 uint8_t twiReadCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
-	return 1;
-}
-
-uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
 	uint8_t m_id = addr & 0x01;
 	switch(addr & ~0x01) {
 		case CMD_ADDR_MODE:
-			switch(*data) {
+			*data = motor[m_id].mode;
+			return 1;
+		case CMD_ADDR_SPEED:
+			*data = motor[m_id].speed;
+			return 1;
+		case CMD_ADDR_DIR:
+			*data = motor[m_id].dir;
+			return 1;
+		case CMD_ADDR_GOTO:
+			*data = motor[m_id].target;
+			return 1;
+		case CMD_ADDR_POS:
+			*data = motor[m_id].pos;
+			return 1;
+	}
+	return 0;
+}
+
+uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
+	uint8_t m_id = addr & 0x01;
+	uint8_t cmd = addr & ~0x01;
+	switch(cmd) {
+		case CMD_ADDR_MODE:
+			switch(data) {
 				case MOTOR_MODE_FREE:
 				case MOTOR_MODE_BOUNDED:
 					motor[m_id].speed = 0;
 					motor[m_id].pos = 1;
 					motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATED);
 					motor[m_id].dir = MOTOR_DIR_STOPPED;
-					motor[m_id].mode = *data;
+					motor[m_id].mode = data;
 					break;
 			}
-			return 0;
+			return 1;
 		case CMD_ADDR_SPEED:
-			motor[m_id].speed = *data;
-			return 0;
+			motor[m_id].speed = data;
+			return 1;
 		case CMD_ADDR_DIR:
-			motor[m_id].dir = *data;
-			return 0;
+			motor[m_id].dir = data;
+			return 1;
 		case CMD_ADDR_GOTO:
-			motor[m_id].target = *data;
-			return 0;
+			motor[m_id].target = data;
+			return 1;
 	}
-	return 1;
+	return 0;
+}
+
+static uint8_t twiRead(uint8_t reg) {
+	uint8_t d = 0;
+	twiReadCallback(reg, 0, &d);
+	return d;
+}
+
+static void twiWrite(uint8_t reg, uint8_t val) {
+	twiWriteCallback(reg, 0, val);
 }
 
 int main(void) {
 	memset(motor, 0, sizeof(motor));
 
-	usiTwiSlaveInit(TWI_ADDRESS);
-	usiTwiSetReadCallback(&twiReadCallback);
-	usiTwiSetWriteCallback(&twiWriteCallback);
-	
+	usiTwiSlaveInit(TWI_ADDRESS, &twiRead, &twiWrite);
+
 	/* configure direction outputs */
 	DDR_MOTOR_A_DIR_L |= (1<<BIT_MOTOR_A_DIR_L);
 	DDR_MOTOR_A_DIR_R |= (1<<BIT_MOTOR_A_DIR_R);

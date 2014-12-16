@@ -35,26 +35,16 @@ Change Activity:
 #define _USI_TWI_SLAVE_H_
 
 
-
-/********************************************************************************
-
-                                    includes
-
-********************************************************************************/
-
-#include <stdbool.h>
-
-
-
 /********************************************************************************
 
                                    prototypes
 
 ********************************************************************************/
 
-void    usiTwiSlaveInit( uint8_t );
-
-void usiTwiSetWriteCallback( uint8_t (*wcb)(uint8_t addr, uint8_t count, uint8_t *data) );
-void usiTwiSetReadCallback( uint8_t (*rcb)(uint8_t addr, uint8_t count, uint8_t *data) );
+void    usiTwiSlaveInit( 
+	uint8_t,  	
+	uint8_t	(*onI2CReadFromRegister)(uint8_t reg),
+	void (*onI2CWriteToRegister)(uint8_t reg, uint8_t value)
+ );
 
 #endif  // ifndef _USI_TWI_SLAVE_H_

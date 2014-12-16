@@ -2,8 +2,9 @@
 
 USI TWI Slave driver.
 
-Created by Donald R. Blake
-donblake at worldnet.att.net
+Created by Donald R. Blake. donblake at worldnet.att.net
+Adapted by Jochen Toppe, jochen.toppe at jtoee.com
+Adapted by Ben Galvin, bgalvin at fastmail.fm
 
 ---------------------------------------------------------------------------------
 
@@ -28,7 +29,9 @@ Change Activity:
   16 Mar 2007  Created.
   27 Mar 2007  Added support for ATtiny261, 461 and 861.
   26 Apr 2007  Fixed ACK of slave address on a read.
-
+  04 Jul 2007  Fixed USISIF in ATtiny45 def
+  12 Dev 2009  Added callback functions for data requests
+  12 Apr 2011  Added read/write register callbacks
 ********************************************************************************/
 
 
@@ -39,9 +42,9 @@ Change Activity:
 
 ********************************************************************************/
 
-#include <stdlib.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stdbool.h>
 #include "usiTwiSlave.h"
 
 
@@ -52,7 +55,7 @@ Change Activity:
 
 ********************************************************************************/
 
-#if defined( __AVR_ATtiny2313__ ) | defined ( __AVR_ATtiny4313__ )
+#if defined( __AVR_ATtiny2313__ ) || defined( __AVR_ATtiny4313__ )
 #  define DDR_USI             DDRB
 #  define PORT_USI            PORTB
 #  define PIN_USI             PINB
@@ -140,7 +143,7 @@ Change Activity:
 #  define USI_OVERFLOW_VECTOR USI_OVERFLOW_vect
 #endif
 
-
+#define NO_CURRENT_REGISTER_SET 255
 
 /********************************************************************************
 
@@ -247,40 +250,12 @@ typedef enum
 
 ********************************************************************************/
 
+static uint8_t	(*_onI2CReadFromRegister)(uint8_t reg);
+static void    	(*_onI2CWriteToRegister)(uint8_t reg, uint8_t value);
+
 static uint8_t                  slaveAddress;
 static volatile overflowState_t overflowState;
-
-static volatile uint8_t got_addr;
-static volatile uint8_t next_addr;
-
-static volatile uint8_t access_addr;
-static volatile uint8_t access_counter;
-
-
-static uint8_t (*writeCallback)(uint8_t addr, uint8_t count, uint8_t *data);
-static uint8_t (*readCallback)(uint8_t addr, uint8_t count, uint8_t *data);
-
-void usiTwiSetWriteCallback( uint8_t (*wcb)(uint8_t addr, uint8_t count, uint8_t *data) ) {
-	writeCallback = wcb;
-}
-
-void usiTwiSetReadCallback( uint8_t (*rcb)(uint8_t addr, uint8_t count, uint8_t *data) ) {
-	readCallback = rcb;
-}
-
-/********************************************************************************
-
-                                local functions
-
-********************************************************************************/
-
-
-static void resetCallbackState(void) {
-	got_addr = 0;
-	access_addr = 0;
-	access_counter = 0;
-}
-
+static volatile uint8_t 		currentRegister = NO_CURRENT_REGISTER_SET;
 
 /********************************************************************************
 
@@ -289,17 +264,20 @@ static void resetCallbackState(void) {
 ********************************************************************************/
 
 
+
 // initialise USI for TWI slave mode
 
 void
 usiTwiSlaveInit(
-  uint8_t ownAddress
+  	uint8_t ownAddress,
+  	uint8_t	(*onI2CReadFromRegister)(uint8_t reg),
+	void (*onI2CWriteToRegister)(uint8_t reg, uint8_t value)
 )
 {
 
-  resetCallbackState();
-
   slaveAddress = ownAddress;
+  _onI2CReadFromRegister = onI2CReadFromRegister;
+  _onI2CWriteToRegister = onI2CWriteToRegister;
 
   // In Two Wire mode (USIWM1, USIWM0 = 1X), the slave USI will pull SCL
   // low when a start condition is detected or a counter overflow (only
@@ -346,7 +324,6 @@ usiTwiSlaveInit(
 
 ISR( USI_START_VECTOR )
 {
-
   // set default starting conditions for new TWI package
   overflowState = USI_SLAVE_CHECK_ADDRESS;
 
@@ -368,9 +345,7 @@ ISR( USI_START_VECTOR )
 
   if ( !( PIN_USI & ( 1 << PIN_USI_SDA ) ) )
   {
-
     // a Stop Condition did not occur
-
     USICR =
          // keep Start Condition Interrupt enabled to detect RESTART
          ( 1 << USISIE ) |
@@ -387,6 +362,7 @@ ISR( USI_START_VECTOR )
   }
   else
   {
+    currentRegister = NO_CURRENT_REGISTER_SET;
 
     // a Stop Condition did occur
     USICR =
@@ -429,8 +405,6 @@ Only disabled when waiting for a new Start Condition.
 ISR( USI_OVERFLOW_VECTOR )
 {
 
-  uint8_t data = 0;
-  uint8_t succ = 0;
   switch ( overflowState )
   {
 
@@ -439,7 +413,8 @@ ISR( USI_OVERFLOW_VECTOR )
     case USI_SLAVE_CHECK_ADDRESS:
       if ( ( USIDR == 0 ) || ( ( USIDR >> 1 ) == slaveAddress) )
       {
-          if ( USIDR & 0x01 )
+
+         if ( USIDR & 0x01 )
         {
           overflowState = USI_SLAVE_SEND_DATA;
         }
@@ -447,12 +422,6 @@ ISR( USI_OVERFLOW_VECTOR )
         {
           overflowState = USI_SLAVE_REQUEST_DATA;
         } // end if
-
-        access_addr = next_addr;
-        next_addr = 0;
-	got_addr = 0;
-        access_counter = 0;
-
         SET_USI_TO_SEND_ACK( );
       }
       else
@@ -476,19 +445,9 @@ ISR( USI_OVERFLOW_VECTOR )
     // copy data from buffer to USIDR and set USI to shift byte
     // next USI_SLAVE_REQUEST_REPLY_FROM_SEND_DATA
     case USI_SLAVE_SEND_DATA:
-      // Get data from callback
-      succ = readCallback( access_addr, access_counter, &data );
-      if (succ)
-      {
-        USIDR = data;
-        access_counter++;
-      }
-      else
-      {
-        // nothing more to send
-        SET_USI_TO_TWI_START_CONDITION_MODE( );
-        return;
-      } // end if
+	
+	  USIDR = _onI2CReadFromRegister(currentRegister);
+      currentRegister = NO_CURRENT_REGISTER_SET;
       overflowState = USI_SLAVE_REQUEST_REPLY_FROM_SEND_DATA;
       SET_USI_TO_SEND_DATA( );
       break;
@@ -510,22 +469,26 @@ ISR( USI_OVERFLOW_VECTOR )
     // copy data from USIDR and send ACK
     // next USI_SLAVE_REQUEST_DATA
     case USI_SLAVE_GET_DATA_AND_SEND_ACK:
-      overflowState = USI_SLAVE_REQUEST_DATA;
-      data = USIDR;
-      if (!got_addr) {
-        access_addr = data;
-        next_addr = data;
-        got_addr = 1;
-      } else {
-        succ = writeCallback( access_addr, access_counter, &data );
-        if (succ) {
-          access_counter++;
-        } else {
-          SET_USI_TO_TWI_START_CONDITION_MODE( );
-          return;
-        } // end if
-      }
 
+	  // The master is writing a value. If we don't have a register yet, it 
+	  // must be writing the register value.
+	  if (currentRegister == NO_CURRENT_REGISTER_SET)
+	  {
+	  	// Store the value as the current register.
+	  	currentRegister = USIDR;
+	  }
+	  else
+	  {
+	  	// We already have a register value, so it must be storing some data.
+	  	_onI2CWriteToRegister(currentRegister, USIDR);
+
+		// Currently we only support writing a single value, so we assume that the
+		// transaction is over.
+		currentRegister = NO_CURRENT_REGISTER_SET;
+	  }
+
+      // next USI_SLAVE_REQUEST_DATA
+      overflowState = USI_SLAVE_REQUEST_DATA;
       SET_USI_TO_SEND_ACK( );
       break;
 
