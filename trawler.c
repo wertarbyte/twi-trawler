@@ -21,35 +21,32 @@
 
 struct motor_conf_t motor[N_MOTORS];
 
+static volatile uint8_t enc_pulses[N_MOTORS];
+
+ISR (INT0_vect) {
+	enc_pulses[0]++;
+}
+
+ISR (INT1_vect) {
+	enc_pulses[1]++;
+}
+
 static void check_encoder(uint8_t m_id) {
-	static uint8_t last[N_MOTORS];
-	uint8_t now;
-	if (motor[m_id].pos == POS_UNKNOWN) {
-		return;
-	}
-	switch(m_id) {
-		case 0:
-			now = (~PIN_SW_A_END & (1<<BIT_SW_A_END));
-			break;
-		case 1:
-			now = (~PIN_SW_B_END & (1<<BIT_SW_B_END));
-			break;
-	}
-	// just triggered
-	if (now && !last[m_id]) {
+	uint8_t count = enc_pulses[m_id];
+	if (motor[m_id].pos != POS_UNKNOWN) {
 		switch(motor[m_id].dir) {
 			case MOTOR_DIR_FORWARD:
-				motor[m_id].pos++;
+				motor[m_id].pos += count;
 				break;
 			case MOTOR_DIR_BACK:
-				motor[m_id].pos--;
+				motor[m_id].pos -= count;
 				break;
 			case MOTOR_DIR_STOPPED:
 				/* strange, but we ignore this for now */
 				break;
 		}
 	}
-	last[m_id] = now;
+	enc_pulses[m_id] -= count;
 }
 
 static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
@@ -84,6 +81,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	if ( (motor[m_id].pos ==       0 && motor[m_id].dir == MOTOR_DIR_BACK) ||
 	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
+		enc_pulses[m_id] = 0;
 	}
 
 	/* Did we finish a calibration sequence? */
@@ -257,6 +255,14 @@ int main(void) {
 	DDRD |= (1 << PD5);
 
 	TCCR0B = (1 << CS01);
+
+	/* prepare interrupts for encoder input */
+
+	/* interrupt on falling edge */
+	MCUCR |= (1<<ISC01) | (0<<ISC00);
+	MCUCR |= (1<<ISC11) | (0<<ISC10);
+	/* enable INT0 and INT1 */
+	GIMSK  |= (1<<INT0 | 1<<INT1);
 
 	sei();
 
