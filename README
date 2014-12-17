@@ -15,7 +15,7 @@ ENC_A---(INT0) PD2 -|6    15|- PB3 (PCINT3)---SW_B
 ENC_B---(INT1) PD3 -|7    14|- PB2 (OC0A)---PWM_A
                    -|8    13|- PB1---DIR_A_R
 PWM_B---(OC0B) PD5 -|9    12|- PB0---DIR_A_L
-               GND -|10   11|-
+               GND -|10   11|- PD6---TWI address 0x01 if GND
                     '-------'
 
 

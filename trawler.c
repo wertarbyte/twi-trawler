@@ -17,7 +17,7 @@
 #define POS_MAX ((uint32_t)0xFFFFFFFF - 1)
 #define POS_UNKNOWN ((uint32_t)0xFFFFFFFF)
 
-#define TWI_ADDRESS (~0xF7)
+#define TWI_BASE_ADDRESS (~0xF7)
 
 struct motor_conf_t motor[N_MOTORS];
 
@@ -218,7 +218,15 @@ static void twiWrite(uint8_t reg, uint8_t c, uint8_t val) {
 int main(void) {
 	memset(motor, 0, sizeof(motor));
 
-	usiTwiSlaveInit(TWI_ADDRESS, &twiRead, &twiWrite);
+	/* check address pin */
+	DDR_TWI_ADDR_BIT_1 &= ~(1<<BIT_TWI_ADDR_BIT_1);
+	PORT_TWI_ADDR_BIT_1 |= (1<<BIT_TWI_ADDR_BIT_1);
+	_delay_ms(5);
+	/* if PD6 is connected to GND, set the lowest bit of the TWI address */
+	uint8_t twi_bit = (~PIN_TWI_ADDR_BIT_1 & (1<<BIT_TWI_ADDR_BIT_1)) ? 0x01 : 0x00;
+	PORT_TWI_ADDR_BIT_1 &= ~(1<<BIT_TWI_ADDR_BIT_1);
+
+	usiTwiSlaveInit(TWI_BASE_ADDRESS | twi_bit, &twiRead, &twiWrite);
 
 	/* configure direction outputs */
 	DDR_MOTOR_A_DIR_L |= (1<<BIT_MOTOR_A_DIR_L);
