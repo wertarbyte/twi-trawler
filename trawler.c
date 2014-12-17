@@ -6,6 +6,7 @@
 #include <string.h>
 #include "usiTwiSlave.h"
 
+#include "motor_ctrl.h"
 #include "motor_types.h"
 #include "motor.h"
 #include "pin_wiring.h"

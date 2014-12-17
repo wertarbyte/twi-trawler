@@ -1,18 +1,7 @@
 #ifndef MOTOR_TYPES_H
 #define MOTOR_TYPES_H 1
 
-enum motor_mode_t {
-	MOTOR_MODE_UNDEF = 0,
-	MOTOR_MODE_FREE,
-	MOTOR_MODE_BOUNDED,
-	MOTOR_MODE_ENCODER,
-};
-
-enum motor_dir_t {
-	MOTOR_DIR_STOPPED,
-	MOTOR_DIR_FORWARD,
-	MOTOR_DIR_BACK,
-};
+#include "motor_ctrl.h"
 
 typedef uint32_t motor_pos_t;
 

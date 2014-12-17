@@ -1,0 +1,17 @@
+#ifndef MOTOR_CTRL_H
+#define MOTOR_CTRL_H 1
+
+enum motor_mode_t {
+	MOTOR_MODE_UNDEF = 0,
+	MOTOR_MODE_FREE,
+	MOTOR_MODE_BOUNDED,
+	MOTOR_MODE_ENCODER,
+};
+
+enum motor_dir_t {
+	MOTOR_DIR_STOPPED = 0,
+	MOTOR_DIR_FORWARD,
+	MOTOR_DIR_BACK,
+};
+
+#endif /* MOTOR_CTRL_H */
