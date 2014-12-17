@@ -85,8 +85,9 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 	}
+
 	/* Did we finish a calibration sequence? */
-	if (motor[m_id].flags & MOTOR_FLAG_CALIBRATING) {
+	if ((motor[m_id].pos == 0) && (motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATING);
 		motor[m_id].flags |= MOTOR_FLAG_CALIBRATED;
 	}
