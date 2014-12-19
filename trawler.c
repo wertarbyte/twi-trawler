@@ -14,8 +14,10 @@
 
 #define N_MOTORS 2
 
+#define POS_MIN ((uint32_t)0)
 #define POS_MAX ((uint32_t)0xFFFFFFFF - 1)
 #define POS_UNKNOWN ((uint32_t)0xFFFFFFFF)
+#define POS_TRANSIT (POS_MAX/2)
 
 #define TWI_BASE_ADDRESS (~0xF7)
 
@@ -53,23 +55,23 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	switch(m_id) {
 		case 0:
 			if ((~PIN_SW_A_ZERO & (1<<BIT_SW_A_ZERO))) {
-				motor[m_id].pos = 0;
+				motor[m_id].pos = POS_MIN;
 			} else if (end_sw) {
 				if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
 					motor[m_id].pos = POS_MAX;
 				} else {
-					motor[m_id].pos = 1;
+					motor[m_id].pos = POS_TRANSIT;
 				}
 			}
 			break;
 		case 1:
 			if ((~PIN_SW_B_ZERO & (1<<BIT_SW_B_ZERO))) {
-				motor[m_id].pos = 0;
+				motor[m_id].pos = POS_MIN;
 			} else if (end_sw) {
 				if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
 					motor[m_id].pos = POS_MAX;
 				} else {
-					motor[m_id].pos = 1;
+					motor[m_id].pos = POS_TRANSIT;
 				}
 			}
 			break;
@@ -78,14 +80,14 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 
 	}
 	/* if we have reached the end, stop the motor */
-	if ( (motor[m_id].pos ==       0 && motor[m_id].dir == MOTOR_DIR_BACK) ||
+	if ( (motor[m_id].pos == POS_MIN && motor[m_id].dir == MOTOR_DIR_BACK) ||
 	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 		enc_pulses[m_id] = 0;
 	}
 
 	/* Did we finish a calibration sequence? */
-	if ((motor[m_id].pos == 0) && (motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
+	if ((motor[m_id].pos == POS_MIN) && (motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATING);
 		motor[m_id].flags |= MOTOR_FLAG_CALIBRATED;
 	}
@@ -198,7 +200,7 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 		case CMD_ADDR_CALIB:
 			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;
 			motor[m_id].pos = POS_UNKNOWN;
-			motor[m_id].target = 0;
+			motor[m_id].target = POS_MIN;
 			return 1;
 	}
 	return 0;
