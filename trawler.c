@@ -93,6 +93,16 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	}
 }
 
+static uint32_t distance_to_target(uint8_t m_id) {
+	if (motor[m_id].pos == motor[m_id].target) {
+		return 0;
+	} else if (motor[m_id].pos > motor[m_id].target) {
+		return motor[m_id].pos - motor[m_id].target;
+	} else {
+		return motor[m_id].target - motor[m_id].pos;
+	}
+}
+
 static void check_target_direction(uint8_t m_id) {
 	if (motor[m_id].pos == POS_UNKNOWN && !(motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		return;
@@ -120,7 +130,7 @@ static void set_motor(uint8_t m_id) {
 			check_target_direction(m_id);
 			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
 			motor_set_direction(m_id, mc->dir);
-			motor_set_speed(m_id, (mc->dir != MOTOR_DIR_STOPPED) ? 0xFF : 0x00);
+			motor_set_speed(m_id, (distance_to_target(m_id) > 150) ? 0xFF : (0xFF/2));
 			break;
 		default:
 			/* failsafe, stop everything */
