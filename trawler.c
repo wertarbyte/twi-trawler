@@ -266,7 +266,7 @@ int main(void) {
 	/* PWM output (OC0B) on PD5 */
 	DDRD |= (1 << PD5);
 
-	TCCR0B = (1 << CS01);
+	TCCR0B = (1 << CS00) | (0 << CS01) | (1 << CS02);
 
 	/* prepare interrupts for encoder input */
 
