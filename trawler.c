@@ -14,9 +14,9 @@
 
 #define N_MOTORS 2
 
-#define POS_MIN ((uint32_t)0)
-#define POS_MAX ((uint32_t)0xFFFFFFFF - 1)
-#define POS_UNKNOWN ((uint32_t)0xFFFFFFFF)
+#define POS_MIN ((motor_pos_t)0)
+#define POS_MAX ((motor_pos_t)0xFFFF - 1)
+#define POS_UNKNOWN ((motor_pos_t)0xFFFF)
 #define POS_TRANSIT (POS_MAX/2)
 
 #define TWI_BASE_ADDRESS (~0xF7)
@@ -99,7 +99,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	}
 }
 
-static uint32_t distance_to_target(uint8_t m_id) {
+static motor_pos_t distance_to_target(uint8_t m_id) {
 	if (motor[m_id].pos == motor[m_id].target) {
 		return 0;
 	} else if (motor[m_id].pos > motor[m_id].target) {
@@ -223,7 +223,7 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 			return 1;
 		case CMD_ADDR_GOTO:
 			setByte(&twi_buf[0], sizeof(motor[m_id].target), data, counter);
-			if (counter == 3) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
+			if (counter == sizeof(motor[m_id].target)-1) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
 			return 1;
 		case CMD_ADDR_CALIB:
 			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;

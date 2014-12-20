@@ -3,7 +3,7 @@
 
 #include "motor_ctrl.h"
 
-typedef uint32_t motor_pos_t;
+typedef uint16_t motor_pos_t;
 
 
 #define MOTOR_FLAG_CALIBRATED  (1<<0)
