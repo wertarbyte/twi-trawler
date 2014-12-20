@@ -17,6 +17,7 @@ struct motor_conf_t {
 	motor_pos_t pos;
 	motor_pos_t target;
 	uint8_t speed;
+	uint16_t odometer;
 };
 
 #endif /* MOTOR_TYPES_H */

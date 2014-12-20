@@ -52,6 +52,7 @@ static void check_encoder(uint8_t m_id) {
 				break;
 		}
 	}
+	motor[m_id].odometer += count;
 	enc_pulses[m_id] -= count;
 }
 
@@ -94,6 +95,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	if ((motor[m_id].pos == POS_MIN) && (motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATING);
 		motor[m_id].flags |= MOTOR_FLAG_CALIBRATED;
+		motor[m_id].odometer = 0;
 	}
 }
 
@@ -186,6 +188,10 @@ uint8_t twiReadCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
 		case CMD_ADDR_POS:
 			if (counter == 0) memcpy(&twi_buf, &motor[m_id].pos, sizeof(motor[m_id].pos));
 			*data = getByte(&twi_buf[0], sizeof(motor[m_id].pos), counter);
+			return 1;
+		case CMD_ADDR_ODO:
+			if (counter == 0) memcpy(&twi_buf, &motor[m_id].odometer, sizeof(motor[m_id].odometer));
+			*data = getByte(&twi_buf[0], sizeof(motor[m_id].odometer), counter);
 			return 1;
 	}
 	return 0;
