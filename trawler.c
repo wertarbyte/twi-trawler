@@ -36,12 +36,16 @@ ISR (INT1_vect) {
 static void check_encoder(uint8_t m_id) {
 	uint8_t count = enc_pulses[m_id];
 	if (motor[m_id].pos != POS_UNKNOWN) {
-		switch(motor[m_id].dir) {
+		switch(motor[m_id].enc_dir) {
 			case MOTOR_DIR_FORWARD:
 				motor[m_id].pos += count;
 				break;
 			case MOTOR_DIR_BACK:
-				motor[m_id].pos -= count;
+				if (count < motor[m_id].pos) {
+					motor[m_id].pos -= count;
+				} else {
+					motor[m_id].pos = 0;
+				}
 				break;
 			case MOTOR_DIR_STOPPED:
 				/* strange, but we ignore this for now */
@@ -83,7 +87,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 	if ( (motor[m_id].pos == POS_MIN && motor[m_id].dir == MOTOR_DIR_BACK) ||
 	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
-		enc_pulses[m_id] = 0;
+		motor[m_id].enc_dir = motor[m_id].dir;
 	}
 
 	/* Did we finish a calibration sequence? */
@@ -108,12 +112,19 @@ static void check_target_direction(uint8_t m_id) {
 		return;
 	}
 
-	if (motor[m_id].target > motor[m_id].pos) {
-		motor[m_id].dir = MOTOR_DIR_FORWARD;
-	} else if (motor[m_id].target < motor[m_id].pos) {
-		motor[m_id].dir = MOTOR_DIR_BACK;
+	if (motor[m_id].dir != MOTOR_DIR_STOPPED) {
+		if (motor[m_id].target == motor[m_id].pos) {
+			/* stop the motor, but keep counting in the old direction */
+			motor[m_id].dir = MOTOR_DIR_STOPPED;
+		}
 	} else {
-		motor[m_id].dir = MOTOR_DIR_STOPPED;
+		if (motor[m_id].target > motor[m_id].pos) {
+			motor[m_id].enc_dir = MOTOR_DIR_FORWARD;
+			motor[m_id].dir = MOTOR_DIR_FORWARD;
+		} else if (motor[m_id].target < motor[m_id].pos) {
+			motor[m_id].enc_dir = MOTOR_DIR_BACK;
+			motor[m_id].dir = MOTOR_DIR_BACK;
+		}
 	}
 }
 
@@ -192,6 +203,7 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 					motor[m_id].speed = 0;
 					motor[m_id].pos = POS_UNKNOWN;
 					motor[m_id].flags = 0;
+					motor[m_id].enc_dir = MOTOR_DIR_STOPPED;
 					motor[m_id].dir = MOTOR_DIR_STOPPED;
 					motor[m_id].mode = data;
 					break;
