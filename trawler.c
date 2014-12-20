@@ -107,6 +107,16 @@ static motor_pos_t distance_to_target(uint8_t m_id) {
 	}
 }
 
+static uint8_t approach_speed(uint8_t m_id) {
+	if (distance_to_target(m_id) < (150)) {
+		return 0xFF/4;
+	}
+	if (distance_to_target(m_id) < (256)) {
+		return 0xFF/2;
+	}
+	return 0xFF;
+}
+
 static void check_target_direction(uint8_t m_id) {
 	if (motor[m_id].pos == POS_UNKNOWN && !(motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		return;
@@ -141,7 +151,7 @@ static void set_motor(uint8_t m_id) {
 			check_target_direction(m_id);
 			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
 			motor_set_direction(m_id, mc->dir);
-			motor_set_speed(m_id, (distance_to_target(m_id) > 150) ? 0xFF : (0xFF/2));
+			motor_set_speed(m_id, approach_speed(m_id));
 			break;
 		default:
 			/* failsafe, stop everything */
