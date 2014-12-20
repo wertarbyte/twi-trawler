@@ -100,9 +100,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 }
 
 static motor_pos_t distance_to_target(uint8_t m_id) {
-	if (motor[m_id].pos == motor[m_id].target) {
-		return 0;
-	} else if (motor[m_id].pos > motor[m_id].target) {
+	if (motor[m_id].pos >= motor[m_id].target) {
 		return motor[m_id].pos - motor[m_id].target;
 	} else {
 		return motor[m_id].target - motor[m_id].pos;
