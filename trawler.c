@@ -169,35 +169,29 @@ static void setByte(uint8_t *b, size_t s, uint8_t data, uint8_t count) {
 #define TWI_BUF_SIZE 4
 static uint8_t twi_buf[TWI_BUF_SIZE];
 
-uint8_t twiReadCallback(uint8_t addr, uint8_t counter, uint8_t *data) {
+uint8_t twiReadCallback(uint8_t addr, uint8_t counter) {
 	uint8_t m_id = addr & 0x01;
 	switch(addr & ~0x01) {
 		case CMD_ADDR_MODE:
-			*data = motor[m_id].mode;
-			return 1;
+			return motor[m_id].mode;
 		case CMD_ADDR_SPEED:
-			*data = motor[m_id].speed;
-			return 1;
+			return motor[m_id].speed;
 		case CMD_ADDR_DIR:
-			*data = motor[m_id].dir;
-			return 1;
+			return motor[m_id].dir;
 		case CMD_ADDR_GOTO:
 			if (counter == 0) memcpy(&twi_buf, &motor[m_id].target, sizeof(motor[m_id].target));
-			*data = getByte(&twi_buf[0], sizeof(motor[m_id].target), counter);
-			return 1;
+			return getByte(&twi_buf[0], sizeof(motor[m_id].target), counter);
 		case CMD_ADDR_POS:
 			if (counter == 0) memcpy(&twi_buf, &motor[m_id].pos, sizeof(motor[m_id].pos));
-			*data = getByte(&twi_buf[0], sizeof(motor[m_id].pos), counter);
-			return 1;
+			return getByte(&twi_buf[0], sizeof(motor[m_id].pos), counter);
 		case CMD_ADDR_ODO:
 			if (counter == 0) memcpy(&twi_buf, &motor[m_id].odometer, sizeof(motor[m_id].odometer));
-			*data = getByte(&twi_buf[0], sizeof(motor[m_id].odometer), counter);
-			return 1;
+			return getByte(&twi_buf[0], sizeof(motor[m_id].odometer), counter);
 	}
 	return 0;
 }
 
-uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
+void twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 	uint8_t m_id = addr & 0x01;
 	uint8_t cmd = addr & ~0x01;
 	switch(cmd) {
@@ -214,34 +208,23 @@ uint8_t twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 					motor[m_id].mode = data;
 					break;
 			}
-			return 1;
+			break;
 		case CMD_ADDR_SPEED:
 			motor[m_id].speed = data;
-			return 1;
+			break;
 		case CMD_ADDR_DIR:
 			motor[m_id].dir = data;
-			return 1;
+			break;
 		case CMD_ADDR_GOTO:
 			setByte(&twi_buf[0], sizeof(motor[m_id].target), data, counter);
 			if (counter == sizeof(motor[m_id].target)-1) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
-			return 1;
+			break;
 		case CMD_ADDR_CALIB:
 			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;
 			motor[m_id].pos = POS_UNKNOWN;
 			motor[m_id].target = POS_MIN;
-			return 1;
+			break;
 	}
-	return 0;
-}
-
-static uint8_t twiRead(uint8_t reg, uint8_t c) {
-	uint8_t d = 0;
-	twiReadCallback(reg, c, &d);
-	return d;
-}
-
-static void twiWrite(uint8_t reg, uint8_t c, uint8_t val) {
-	twiWriteCallback(reg, c, val);
 }
 
 int main(void) {
@@ -255,7 +238,7 @@ int main(void) {
 	uint8_t twi_bit = (~PIN_TWI_ADDR_BIT_1 & (1<<BIT_TWI_ADDR_BIT_1)) ? 0x01 : 0x00;
 	PORT_TWI_ADDR_BIT_1 &= ~(1<<BIT_TWI_ADDR_BIT_1);
 
-	usiTwiSlaveInit(TWI_BASE_ADDRESS | twi_bit, &twiRead, &twiWrite);
+	usiTwiSlaveInit(TWI_BASE_ADDRESS | twi_bit, &twiReadCallback, &twiWriteCallback);
 
 	/* configure direction outputs */
 	DDR_MOTOR_A_DIR_L |= (1<<BIT_MOTOR_A_DIR_L);
