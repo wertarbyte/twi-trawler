@@ -35,6 +35,8 @@ ISR (INT1_vect) {
 
 static void check_encoder(uint8_t m_id) {
 	uint8_t count = enc_pulses[m_id];
+	enc_pulses[m_id] -= count;
+	motor[m_id].odometer += count;
 	if (motor[m_id].pos != POS_UNKNOWN) {
 		switch(motor[m_id].enc_dir) {
 			case MOTOR_DIR_FORWARD:
@@ -52,8 +54,6 @@ static void check_encoder(uint8_t m_id) {
 				break;
 		}
 	}
-	motor[m_id].odometer += count;
-	enc_pulses[m_id] -= count;
 }
 
 static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
