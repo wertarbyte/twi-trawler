@@ -138,6 +138,10 @@ static void check_target_direction(uint8_t m_id) {
 	}
 }
 
+static uint8_t target_reached(uint8_t m_id) {
+	return (motor[m_id].target == motor[m_id].pos);
+}
+
 static void set_motor(uint8_t m_id) {
 	struct motor_conf_t *mc = &motor[m_id];
 	switch(mc->mode) {
@@ -195,6 +199,8 @@ uint8_t twiReadCallback(uint8_t addr, uint8_t counter) {
 		case CMD_ADDR_ODO:
 			if (counter == 0) memcpy(&twi_buf, &motor[m_id].odometer, sizeof(motor[m_id].odometer));
 			return getByte(&twi_buf[0], sizeof(motor[m_id].odometer), counter);
+		case CMD_ADDR_TARGET_REACHED:
+			return target_reached(m_id);
 	}
 	return 0;
 }

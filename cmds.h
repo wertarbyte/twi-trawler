@@ -5,3 +5,4 @@
 #define CMD_ADDR_POS 0x50
 #define CMD_ADDR_CALIB 0x60
 #define CMD_ADDR_ODO 0x70
+#define CMD_ADDR_TARGET_REACHED 0x80
