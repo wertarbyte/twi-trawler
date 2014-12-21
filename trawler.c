@@ -118,23 +118,37 @@ static uint8_t approach_speed(uint8_t m_id) {
 	return 0xFF;
 }
 
+#define STOP_COUNT_MAX 255
 static void check_target_direction(uint8_t m_id) {
+	static uint8_t stop_counter[N_MOTORS];
+
 	if (motor[m_id].pos == POS_UNKNOWN && !(motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
 		return;
 	}
 
-	if (motor[m_id].dir != MOTOR_DIR_STOPPED) {
-		if (motor[m_id].target == motor[m_id].pos) {
+	enum motor_dir_t target_dir = MOTOR_DIR_STOPPED;
+	if (motor[m_id].target > motor[m_id].pos) {
+		target_dir = MOTOR_DIR_FORWARD;
+	} else {
+		target_dir = MOTOR_DIR_BACK;
+	}
+
+	/* do we need to change direction? */
+	if (target_dir != motor[m_id].dir) {
+		/* is the motor currently stopped? */
+		if ((motor[m_id].dir == MOTOR_DIR_STOPPED) && (stop_counter[m_id] == STOP_COUNT_MAX)) {
+			/* start it in the new direction */
+			motor[m_id].dir = target_dir;
+			/* also use the encoder in the new direction */
+			motor[m_id].enc_dir = target_dir;
+		} else {
+			if (motor[m_id].dir != MOTOR_DIR_STOPPED) {
+				stop_counter[m_id] = 0;
+			} else {
+				stop_counter[m_id]++;
+			}
 			/* stop the motor, but keep counting in the old direction */
 			motor[m_id].dir = MOTOR_DIR_STOPPED;
-		}
-	} else {
-		if (motor[m_id].target > motor[m_id].pos) {
-			motor[m_id].enc_dir = MOTOR_DIR_FORWARD;
-			motor[m_id].dir = MOTOR_DIR_FORWARD;
-		} else if (motor[m_id].target < motor[m_id].pos) {
-			motor[m_id].enc_dir = MOTOR_DIR_BACK;
-			motor[m_id].dir = MOTOR_DIR_BACK;
 		}
 	}
 }
