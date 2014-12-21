@@ -118,6 +118,12 @@ static uint8_t approach_speed(uint8_t m_id) {
 	return 0xFF;
 }
 
+#define TARGET_PRECISION_TOLERANCE 5
+
+static uint8_t target_approached(uint8_t m_id) {
+	return (distance_to_target(m_id) < TARGET_PRECISION_TOLERANCE);
+}
+
 #define STOP_COUNT_MAX 255
 static void check_target_direction(uint8_t m_id) {
 	static uint8_t stop_counter[N_MOTORS];
@@ -127,10 +133,12 @@ static void check_target_direction(uint8_t m_id) {
 	}
 
 	enum motor_dir_t target_dir = MOTOR_DIR_STOPPED;
-	if (motor[m_id].target > motor[m_id].pos) {
-		target_dir = MOTOR_DIR_FORWARD;
-	} else {
-		target_dir = MOTOR_DIR_BACK;
+	if (! target_approached(m_id)) {
+		if (motor[m_id].target > motor[m_id].pos) {
+			target_dir = MOTOR_DIR_FORWARD;
+		} else {
+			target_dir = MOTOR_DIR_BACK;
+		}
 	}
 
 	/* do we need to change direction? */
@@ -156,11 +164,11 @@ static void check_target_direction(uint8_t m_id) {
 #define STAB_COUNT_MAX 1024
 
 static uint8_t target_reached(uint8_t m_id) {
-	return (motor[m_id].target == motor[m_id].pos) && (motor[m_id].stab_count == STAB_COUNT_MAX);
+	return target_approached(m_id) && (motor[m_id].stab_count == STAB_COUNT_MAX);
 }
 
 static void check_pos_stability(uint8_t m_id) {
-	if (motor[m_id].target == motor[m_id].pos) {
+	if (target_approached(m_id)) {
 		if (motor[m_id].stab_count != STAB_COUNT_MAX) {
 			motor[m_id].stab_count++;
 		}
