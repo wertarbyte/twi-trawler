@@ -108,11 +108,11 @@ static motor_pos_t distance_to_target(uint8_t m_id) {
 }
 
 static uint8_t approach_speed(uint8_t m_id) {
-	if (distance_to_target(m_id) < (150)) {
-		return 0xFF/4;
+	if (distance_to_target(m_id) <= 150) {
+		return 90;
 	}
-	if (distance_to_target(m_id) < (256)) {
-		return 0xFF/2;
+	if (distance_to_target(m_id) <= 256) {
+		return 128;
 	}
 	return 0xFF;
 }
