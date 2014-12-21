@@ -142,21 +142,21 @@ static void set_motor(uint8_t m_id) {
 	struct motor_conf_t *mc = &motor[m_id];
 	switch(mc->mode) {
 		case MOTOR_MODE_FREE:
-			motor_set_direction(m_id, mc->dir);
 			motor_set_speed(m_id, mc->speed);
+			motor_set_direction(m_id, mc->dir);
 			break;
 		case MOTOR_MODE_ENCODER:
 			check_encoder(m_id);
 		case MOTOR_MODE_BOUNDED:
 			check_target_direction(m_id);
 			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
-			motor_set_direction(m_id, mc->dir);
 			motor_set_speed(m_id, approach_speed(m_id));
+			motor_set_direction(m_id, mc->dir);
 			break;
 		default:
 			/* failsafe, stop everything */
-			motor_set_direction(m_id, MOTOR_DIR_STOPPED);
 			motor_set_speed(m_id, 0);
+			motor_set_direction(m_id, MOTOR_DIR_STOPPED);
 	}
 }
 
