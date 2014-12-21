@@ -16,6 +16,7 @@ struct motor_conf_t {
 	uint8_t flags;
 	motor_pos_t pos;
 	motor_pos_t target;
+	uint16_t stab_count;
 	uint8_t speed;
 	uint16_t odometer;
 };

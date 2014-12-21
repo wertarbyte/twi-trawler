@@ -138,8 +138,20 @@ static void check_target_direction(uint8_t m_id) {
 	}
 }
 
+#define STAB_COUNT_MAX 1024
+
 static uint8_t target_reached(uint8_t m_id) {
-	return (motor[m_id].target == motor[m_id].pos);
+	return (motor[m_id].target == motor[m_id].pos) && (motor[m_id].stab_count == STAB_COUNT_MAX);
+}
+
+static void check_pos_stability(uint8_t m_id) {
+	if (motor[m_id].target == motor[m_id].pos) {
+		if (motor[m_id].stab_count != STAB_COUNT_MAX) {
+			motor[m_id].stab_count++;
+		}
+	} else {
+			motor[m_id].stab_count = 0;
+	}
 }
 
 static void set_motor(uint8_t m_id) {
@@ -156,6 +168,7 @@ static void set_motor(uint8_t m_id) {
 			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
 			motor_set_speed(m_id, approach_speed(m_id));
 			motor_set_direction(m_id, mc->dir);
+			check_pos_stability(m_id);
 			break;
 		default:
 			/* failsafe, stop everything */
