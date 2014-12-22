@@ -41,18 +41,18 @@ static void check_bound_switches(uint8_t m_id) {
 			return;
 
 	}
-	/* if we have reached the end, stop the motor */
-	if ( (motor[m_id].pos == 0 && motor[m_id].dir == MOTOR_DIR_CW) ||
-	     (motor[m_id].pos == 2 && motor[m_id].dir == MOTOR_DIR_CCW) ) {
+	/* if we have reached at end, stop the motor */
+	if ( (motor[m_id].pos == 0 && motor[m_id].dir == MOTOR_DIR_BACK) ||
+	     (motor[m_id].pos == 2 && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 	}
 }
 
 static void check_target_direction(uint8_t m_id) {
 	if (motor[m_id].target > motor[m_id].pos) {
-		motor[m_id].dir = MOTOR_DIR_CW;
+		motor[m_id].dir = MOTOR_DIR_FORWARD;
 	} else if (motor[m_id].target < motor[m_id].pos) {
-		motor[m_id].dir = MOTOR_DIR_CCW;
+		motor[m_id].dir = MOTOR_DIR_BACK;
 	} else {
 		motor[m_id].dir = MOTOR_DIR_STOPPED;
 	}

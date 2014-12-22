@@ -9,8 +9,8 @@ enum motor_mode_t {
 
 enum motor_dir_t {
 	MOTOR_DIR_STOPPED,
-	MOTOR_DIR_CW,
-	MOTOR_DIR_CCW,
+	MOTOR_DIR_FORWARD,
+	MOTOR_DIR_BACK,
 };
 
 typedef uint32_t motor_pos_t;

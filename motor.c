@@ -23,11 +23,11 @@ void motor_set_direction(uint8_t motor_id, enum motor_dir_t dir) {
 	switch(motor_id) {
 		case 0:
 			switch(dir) {
-				case MOTOR_DIR_CCW:
+				case MOTOR_DIR_BACK:
 					PORT_MOTOR_A_DIR_L |=  (1<<BIT_MOTOR_A_DIR_L);
 					PORT_MOTOR_A_DIR_R &= ~(1<<BIT_MOTOR_A_DIR_R);
 					break;
-				case MOTOR_DIR_CW:
+				case MOTOR_DIR_FORWARD:
 					PORT_MOTOR_A_DIR_L &= ~(1<<BIT_MOTOR_A_DIR_L);
 					PORT_MOTOR_A_DIR_R |=  (1<<BIT_MOTOR_A_DIR_R);
 					break;
@@ -40,11 +40,11 @@ void motor_set_direction(uint8_t motor_id, enum motor_dir_t dir) {
 			break;
 		case 1:
 			switch(dir) {
-				case MOTOR_DIR_CCW:
+				case MOTOR_DIR_BACK:
 					PORT_MOTOR_B_DIR_L |=  (1<<BIT_MOTOR_B_DIR_L);
 					PORT_MOTOR_B_DIR_R &= ~(1<<BIT_MOTOR_B_DIR_R);
 					break;
-				case MOTOR_DIR_CW:
+				case MOTOR_DIR_FORWARD:
 					PORT_MOTOR_B_DIR_L &= ~(1<<BIT_MOTOR_B_DIR_L);
 					PORT_MOTOR_B_DIR_R |=  (1<<BIT_MOTOR_B_DIR_R);
 					break;
