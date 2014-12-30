@@ -23,22 +23,20 @@
 
 static struct motor_conf_t motor[N_MOTORS];
 
-static volatile uint8_t enc_pulses[N_MOTORS];
-
 ISR (INT0_vect) {
-	enc_pulses[0]++;
+	motor[0].enc_pulses++;
 }
 
 ISR (INT1_vect) {
-	enc_pulses[1]++;
+	motor[1].enc_pulses++;
 }
 
 static void check_sensors(uint8_t m_id) {
 	struct motor_conf_t *mc = &motor[m_id];
 	/* check encoder signals */
 	if (mc->mode == MOTOR_MODE_ENCODER) {
-		uint8_t count = enc_pulses[m_id];
-		enc_pulses[m_id] -= count;
+		uint8_t count = mc->enc_pulses;
+		mc->enc_pulses -= count;
 		mc->odometer += count;
 		if (mc->pos != POS_UNKNOWN) {
 			switch(mc->enc_dir) {

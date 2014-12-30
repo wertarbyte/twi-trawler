@@ -19,6 +19,7 @@ struct motor_conf_t {
 	uint16_t stab_count;
 	uint8_t speed;
 	uint16_t odometer;
+	volatile uint8_t enc_pulses;
 };
 
 #endif /* MOTOR_TYPES_H */
