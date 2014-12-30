@@ -33,35 +33,37 @@ ISR (INT1_vect) {
 	enc_pulses[1]++;
 }
 
-static void check_encoder(uint8_t m_id) {
-	uint8_t count = enc_pulses[m_id];
-	enc_pulses[m_id] -= count;
-	motor[m_id].odometer += count;
-	if (motor[m_id].pos != POS_UNKNOWN) {
-		switch(motor[m_id].enc_dir) {
-			case MOTOR_DIR_FORWARD:
-				motor[m_id].pos += count;
-				break;
-			case MOTOR_DIR_BACK:
-				if (count < motor[m_id].pos) {
-					motor[m_id].pos -= count;
-				} else {
-					motor[m_id].pos = 0;
-				}
-				break;
-			case MOTOR_DIR_STOPPED:
-				/* strange, but we ignore this for now */
-				break;
+static void check_sensors(uint8_t m_id) {
+	/* check encoder signals */
+	if (motor[m_id].mode == MOTOR_MODE_ENCODER) {
+		uint8_t count = enc_pulses[m_id];
+		enc_pulses[m_id] -= count;
+		motor[m_id].odometer += count;
+		if (motor[m_id].pos != POS_UNKNOWN) {
+			switch(motor[m_id].enc_dir) {
+				case MOTOR_DIR_FORWARD:
+					motor[m_id].pos += count;
+					break;
+				case MOTOR_DIR_BACK:
+					if (count < motor[m_id].pos) {
+						motor[m_id].pos -= count;
+					} else {
+						motor[m_id].pos = 0;
+					}
+					break;
+				case MOTOR_DIR_STOPPED:
+					/* strange, but we ignore this for now */
+					break;
+			}
 		}
 	}
-}
 
-static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
+	/* check bound switches */
 	switch(m_id) {
 		case 0:
 			if ((~PIN_SW_A_ZERO & (1<<BIT_SW_A_ZERO))) {
 				motor[m_id].pos = POS_MIN;
-			} else if (end_sw) {
+			} else if (motor[m_id].mode == MOTOR_MODE_BOUNDED) {
 				if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
 					motor[m_id].pos = POS_MAX;
 				} else {
@@ -72,7 +74,7 @@ static void check_bound_switches(uint8_t m_id, uint8_t end_sw) {
 		case 1:
 			if ((~PIN_SW_B_ZERO & (1<<BIT_SW_B_ZERO))) {
 				motor[m_id].pos = POS_MIN;
-			} else if (end_sw) {
+			} else if (motor[m_id].mode == MOTOR_MODE_BOUNDED) {
 				if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
 					motor[m_id].pos = POS_MAX;
 				} else {
@@ -185,10 +187,9 @@ static void set_motor(uint8_t m_id) {
 			motor_set_direction(m_id, mc->dir);
 			break;
 		case MOTOR_MODE_ENCODER:
-			check_encoder(m_id);
 		case MOTOR_MODE_BOUNDED:
 			check_target_direction(m_id);
-			check_bound_switches(m_id, (mc->mode == MOTOR_MODE_BOUNDED));
+			check_sensors(m_id);
 			motor_set_speed(m_id, approach_speed(m_id));
 			motor_set_direction(m_id, mc->dir);
 			check_pos_stability(m_id);
