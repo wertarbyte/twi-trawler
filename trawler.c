@@ -21,7 +21,7 @@
 
 #define TWI_BASE_ADDRESS (~0xF7)
 
-struct motor_conf_t motor[N_MOTORS];
+static struct motor_conf_t motor[N_MOTORS];
 
 static volatile uint8_t enc_pulses[N_MOTORS];
 
@@ -286,8 +286,6 @@ void twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 }
 
 int main(void) {
-	memset(motor, 0, sizeof(motor));
-
 	/* check address pin */
 	DDR_TWI_ADDR_BIT_1 &= ~(1<<BIT_TWI_ADDR_BIT_1);
 	PORT_TWI_ADDR_BIT_1 |= (1<<BIT_TWI_ADDR_BIT_1);
