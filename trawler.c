@@ -330,8 +330,7 @@ int main(void) {
 	/* prepare interrupts for encoder input */
 
 	/* interrupt on falling edge */
-	MCUCR |= (1<<ISC01) | (0<<ISC00);
-	MCUCR |= (1<<ISC11) | (0<<ISC10);
+	MCUCR |= (1<<ISC01) | (0<<ISC00) | (1<<ISC11) | (0<<ISC10);
 	/* enable INT0 and INT1 */
 	GIMSK  |= (1<<INT0 | 1<<INT1);
 
