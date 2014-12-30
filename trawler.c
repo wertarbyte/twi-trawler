@@ -81,9 +81,6 @@ static void check_sensors(uint8_t m_id) {
 				}
 			}
 			break;
-		default:
-			return;
-
 	}
 	/* if we have reached the end, stop the motor */
 	if ( (mc->pos == POS_MIN && mc->dir == MOTOR_DIR_BACK) ||
