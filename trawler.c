@@ -34,21 +34,22 @@ ISR (INT1_vect) {
 }
 
 static void check_sensors(uint8_t m_id) {
+	struct motor_conf_t *mc = &motor[m_id];
 	/* check encoder signals */
-	if (motor[m_id].mode == MOTOR_MODE_ENCODER) {
+	if (mc->mode == MOTOR_MODE_ENCODER) {
 		uint8_t count = enc_pulses[m_id];
 		enc_pulses[m_id] -= count;
-		motor[m_id].odometer += count;
-		if (motor[m_id].pos != POS_UNKNOWN) {
-			switch(motor[m_id].enc_dir) {
+		mc->odometer += count;
+		if (mc->pos != POS_UNKNOWN) {
+			switch(mc->enc_dir) {
 				case MOTOR_DIR_FORWARD:
-					motor[m_id].pos += count;
+					mc->pos += count;
 					break;
 				case MOTOR_DIR_BACK:
-					if (count < motor[m_id].pos) {
-						motor[m_id].pos -= count;
+					if (count < mc->pos) {
+						mc->pos -= count;
 					} else {
-						motor[m_id].pos = 0;
+						mc->pos = 0;
 					}
 					break;
 				case MOTOR_DIR_STOPPED:
@@ -62,23 +63,23 @@ static void check_sensors(uint8_t m_id) {
 	switch(m_id) {
 		case 0:
 			if ((~PIN_SW_A_ZERO & (1<<BIT_SW_A_ZERO))) {
-				motor[m_id].pos = POS_MIN;
-			} else if (motor[m_id].mode == MOTOR_MODE_BOUNDED) {
+				mc->pos = POS_MIN;
+			} else if (mc->mode == MOTOR_MODE_BOUNDED) {
 				if ((~PIN_SW_A_END & (1<<BIT_SW_A_END))) {
-					motor[m_id].pos = POS_MAX;
+					mc->pos = POS_MAX;
 				} else {
-					motor[m_id].pos = POS_TRANSIT;
+					mc->pos = POS_TRANSIT;
 				}
 			}
 			break;
 		case 1:
 			if ((~PIN_SW_B_ZERO & (1<<BIT_SW_B_ZERO))) {
-				motor[m_id].pos = POS_MIN;
-			} else if (motor[m_id].mode == MOTOR_MODE_BOUNDED) {
+				mc->pos = POS_MIN;
+			} else if (mc->mode == MOTOR_MODE_BOUNDED) {
 				if ((~PIN_SW_B_END & (1<<BIT_SW_B_END))) {
-					motor[m_id].pos = POS_MAX;
+					mc->pos = POS_MAX;
 				} else {
-					motor[m_id].pos = POS_TRANSIT;
+					mc->pos = POS_TRANSIT;
 				}
 			}
 			break;
@@ -87,25 +88,26 @@ static void check_sensors(uint8_t m_id) {
 
 	}
 	/* if we have reached the end, stop the motor */
-	if ( (motor[m_id].pos == POS_MIN && motor[m_id].dir == MOTOR_DIR_BACK) ||
-	     (motor[m_id].pos == POS_MAX && motor[m_id].dir == MOTOR_DIR_FORWARD) ) {
-		motor[m_id].dir = MOTOR_DIR_STOPPED;
-		motor[m_id].enc_dir = motor[m_id].dir;
+	if ( (mc->pos == POS_MIN && mc->dir == MOTOR_DIR_BACK) ||
+	     (mc->pos == POS_MAX && mc->dir == MOTOR_DIR_FORWARD) ) {
+		mc->dir = MOTOR_DIR_STOPPED;
+		mc->enc_dir = mc->dir;
 	}
 
 	/* Did we finish a calibration sequence? */
-	if ((motor[m_id].pos == POS_MIN) && (motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
-		motor[m_id].flags &= ~(MOTOR_FLAG_CALIBRATING);
-		motor[m_id].flags |= MOTOR_FLAG_CALIBRATED;
-		motor[m_id].odometer = 0;
+	if ((mc->pos == POS_MIN) && (mc->flags & MOTOR_FLAG_CALIBRATING)) {
+		mc->flags &= ~(MOTOR_FLAG_CALIBRATING);
+		mc->flags |= MOTOR_FLAG_CALIBRATED;
+		mc->odometer = 0;
 	}
 }
 
 static motor_pos_t distance_to_target(uint8_t m_id) {
-	if (motor[m_id].pos >= motor[m_id].target) {
-		return motor[m_id].pos - motor[m_id].target;
+	struct motor_conf_t *mc = &motor[m_id];
+	if (mc->pos >= mc->target) {
+		return mc->pos - mc->target;
 	} else {
-		return motor[m_id].target - motor[m_id].pos;
+		return mc->target - mc->pos;
 	}
 }
 
@@ -130,13 +132,15 @@ static uint8_t target_approached(uint8_t m_id) {
 static void check_target_direction(uint8_t m_id) {
 	static uint8_t stop_counter[N_MOTORS];
 
-	if (motor[m_id].pos == POS_UNKNOWN && !(motor[m_id].flags & MOTOR_FLAG_CALIBRATING)) {
+	struct motor_conf_t *mc = &motor[m_id];
+
+	if (mc->pos == POS_UNKNOWN && !(mc->flags & MOTOR_FLAG_CALIBRATING)) {
 		return;
 	}
 
 	enum motor_dir_t target_dir = MOTOR_DIR_STOPPED;
 	if (! target_approached(m_id)) {
-		if (motor[m_id].target > motor[m_id].pos) {
+		if (mc->target > mc->pos) {
 			target_dir = MOTOR_DIR_FORWARD;
 		} else {
 			target_dir = MOTOR_DIR_BACK;
@@ -144,21 +148,21 @@ static void check_target_direction(uint8_t m_id) {
 	}
 
 	/* do we need to change direction? */
-	if (target_dir != motor[m_id].dir) {
+	if (target_dir != mc->dir) {
 		/* is the motor currently stopped? */
-		if ((motor[m_id].dir == MOTOR_DIR_STOPPED) && (stop_counter[m_id] == STOP_COUNT_MAX)) {
+		if ((mc->dir == MOTOR_DIR_STOPPED) && (stop_counter[m_id] == STOP_COUNT_MAX)) {
 			/* start it in the new direction */
-			motor[m_id].dir = target_dir;
+			mc->dir = target_dir;
 			/* also use the encoder in the new direction */
-			motor[m_id].enc_dir = target_dir;
+			mc->enc_dir = target_dir;
 		} else {
-			if (motor[m_id].dir != MOTOR_DIR_STOPPED) {
+			if (mc->dir != MOTOR_DIR_STOPPED) {
 				stop_counter[m_id] = 0;
 			} else {
 				stop_counter[m_id]++;
 			}
 			/* stop the motor, but keep counting in the old direction */
-			motor[m_id].dir = MOTOR_DIR_STOPPED;
+			mc->dir = MOTOR_DIR_STOPPED;
 		}
 	}
 }
@@ -170,12 +174,13 @@ static uint8_t target_reached(uint8_t m_id) {
 }
 
 static void check_pos_stability(uint8_t m_id) {
+	struct motor_conf_t *mc = &motor[m_id];
 	if (target_approached(m_id)) {
-		if (motor[m_id].stab_count != STAB_COUNT_MAX) {
-			motor[m_id].stab_count++;
+		if (mc->stab_count != STAB_COUNT_MAX) {
+			mc->stab_count++;
 		}
 	} else {
-			motor[m_id].stab_count = 0;
+		mc->stab_count = 0;
 	}
 }
 
@@ -220,22 +225,23 @@ static uint8_t twi_buf[TWI_BUF_SIZE];
 
 uint8_t twiReadCallback(uint8_t addr, uint8_t counter) {
 	uint8_t m_id = addr & 0x01;
+	struct motor_conf_t *mc = &motor[m_id];
 	switch(addr & ~0x01) {
 		case CMD_ADDR_MODE:
-			return motor[m_id].mode;
+			return mc->mode;
 		case CMD_ADDR_SPEED:
-			return motor[m_id].speed;
+			return mc->speed;
 		case CMD_ADDR_DIR:
-			return motor[m_id].dir;
+			return mc->dir;
 		case CMD_ADDR_GOTO:
-			if (counter == 0) memcpy(&twi_buf, &motor[m_id].target, sizeof(motor[m_id].target));
-			return getByte(&twi_buf[0], sizeof(motor[m_id].target), counter);
+			if (counter == 0) memcpy(&twi_buf, &mc->target, sizeof(mc->target));
+			return getByte(&twi_buf[0], sizeof(mc->target), counter);
 		case CMD_ADDR_POS:
-			if (counter == 0) memcpy(&twi_buf, &motor[m_id].pos, sizeof(motor[m_id].pos));
-			return getByte(&twi_buf[0], sizeof(motor[m_id].pos), counter);
+			if (counter == 0) memcpy(&twi_buf, &mc->pos, sizeof(mc->pos));
+			return getByte(&twi_buf[0], sizeof(mc->pos), counter);
 		case CMD_ADDR_ODO:
-			if (counter == 0) memcpy(&twi_buf, &motor[m_id].odometer, sizeof(motor[m_id].odometer));
-			return getByte(&twi_buf[0], sizeof(motor[m_id].odometer), counter);
+			if (counter == 0) memcpy(&twi_buf, &mc->odometer, sizeof(mc->odometer));
+			return getByte(&twi_buf[0], sizeof(mc->odometer), counter);
 		case CMD_ADDR_TARGET_REACHED:
 			return target_reached(m_id);
 	}
@@ -245,35 +251,36 @@ uint8_t twiReadCallback(uint8_t addr, uint8_t counter) {
 void twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 	uint8_t m_id = addr & 0x01;
 	uint8_t cmd = addr & ~0x01;
+	struct motor_conf_t *mc = &motor[m_id];
 	switch(cmd) {
 		case CMD_ADDR_MODE:
 			switch(data) {
 				case MOTOR_MODE_FREE:
 				case MOTOR_MODE_BOUNDED:
 				case MOTOR_MODE_ENCODER:
-					motor[m_id].speed = 0;
-					motor[m_id].pos = POS_UNKNOWN;
-					motor[m_id].flags = 0;
-					motor[m_id].enc_dir = MOTOR_DIR_STOPPED;
-					motor[m_id].dir = MOTOR_DIR_STOPPED;
-					motor[m_id].mode = data;
+					mc->speed = 0;
+					mc->pos = POS_UNKNOWN;
+					mc->flags = 0;
+					mc->enc_dir = MOTOR_DIR_STOPPED;
+					mc->dir = MOTOR_DIR_STOPPED;
+					mc->mode = data;
 					break;
 			}
 			break;
 		case CMD_ADDR_SPEED:
-			motor[m_id].speed = data;
+			mc->speed = data;
 			break;
 		case CMD_ADDR_DIR:
-			motor[m_id].dir = data;
+			mc->dir = data;
 			break;
 		case CMD_ADDR_GOTO:
-			setByte(&twi_buf[0], sizeof(motor[m_id].target), data, counter);
-			if (counter == sizeof(motor[m_id].target)-1) memcpy(&motor[m_id].target, &twi_buf[0], sizeof(motor[m_id].target));
+			setByte(&twi_buf[0], sizeof(mc->target), data, counter);
+			if (counter == sizeof(mc->target)-1) memcpy(&mc->target, &twi_buf[0], sizeof(mc->target));
 			break;
 		case CMD_ADDR_CALIB:
-			motor[m_id].flags |= MOTOR_FLAG_CALIBRATING;
-			motor[m_id].pos = POS_UNKNOWN;
-			motor[m_id].target = POS_MIN;
+			mc->flags |= MOTOR_FLAG_CALIBRATING;
+			mc->pos = POS_UNKNOWN;
+			mc->target = POS_MIN;
 			break;
 	}
 }
