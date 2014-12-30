@@ -332,10 +332,10 @@ int main(void) {
 
 	sei();
 
+	uint8_t i = 0;
 	while (1) {
-		for (uint8_t i=0; i<N_MOTORS; i++) {
-			set_motor(i);
-		}
+		set_motor(i);
+		if (++i==N_MOTORS) i=0;
 	}
 	return 0;
 }
