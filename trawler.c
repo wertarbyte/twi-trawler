@@ -4,6 +4,8 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <string.h>
+#include <util/atomic.h>
+
 #include "usiTwiSlave.h"
 
 #include "motor_ctrl.h"
@@ -23,6 +25,8 @@
 
 static struct motor_conf_t motor[N_MOTORS];
 
+static volatile time_t cs_time;
+
 ISR (INT0_vect) {
 	motor[0].enc_pulses++;
 }
@@ -31,11 +35,25 @@ ISR (INT1_vect) {
 	motor[1].enc_pulses++;
 }
 
+ISR (TIMER1_COMPA_vect) {
+	cs_time++;
+}
+
+static time_t now(void) {
+	time_t r;
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		r = cs_time;
+	}
+	return r;
+}
+
 static void check_sensors(uint8_t m_id) {
 	struct motor_conf_t *mc = &motor[m_id];
+	motor_pos_t pos_before = mc->pos;
 	/* check encoder signals */
+	uint8_t count = 0;
 	if (mc->mode == MOTOR_MODE_ENCODER) {
-		uint8_t count = mc->enc_pulses;
+		count = mc->enc_pulses;
 		mc->enc_pulses -= count;
 		mc->odometer += count;
 		if (mc->pos != POS_UNKNOWN) {
@@ -95,6 +113,11 @@ static void check_sensors(uint8_t m_id) {
 		mc->flags |= MOTOR_FLAG_CALIBRATED;
 		mc->odometer = 0;
 	}
+
+	/* was there movement at all? */
+	if (pos_before != mc->pos || count) {
+		mc->last_movement = now();
+	}
 }
 
 static motor_pos_t distance_to_target(uint8_t m_id) {
@@ -123,10 +146,7 @@ static uint8_t target_approached(uint8_t m_id) {
 	return (distance_to_target(m_id) < TARGET_PRECISION_TOLERANCE);
 }
 
-#define STOP_COUNT_MAX 255
 static void check_target_direction(uint8_t m_id) {
-	static uint8_t stop_counter[N_MOTORS];
-
 	struct motor_conf_t *mc = &motor[m_id];
 
 	if (mc->pos == POS_UNKNOWN && !(mc->flags & MOTOR_FLAG_CALIBRATING)) {
@@ -144,39 +164,22 @@ static void check_target_direction(uint8_t m_id) {
 
 	/* do we need to change direction? */
 	if (target_dir != mc->dir) {
-		/* is the motor currently stopped? */
-		if ((mc->dir == MOTOR_DIR_STOPPED) && (stop_counter[m_id] == STOP_COUNT_MAX)) {
+		/* is the motor currently stopped? Did it rest for a grace period? */
+		if ((mc->dir == MOTOR_DIR_STOPPED) && (now() > mc->last_movement + 2)) {
 			/* start it in the new direction */
 			mc->dir = target_dir;
 			/* also use the encoder in the new direction */
 			mc->enc_dir = target_dir;
 		} else {
-			if (mc->dir != MOTOR_DIR_STOPPED) {
-				stop_counter[m_id] = 0;
-			} else {
-				stop_counter[m_id]++;
-			}
 			/* stop the motor, but keep counting in the old direction */
 			mc->dir = MOTOR_DIR_STOPPED;
 		}
 	}
 }
 
-#define STAB_COUNT_MAX 1024
-
 static uint8_t target_reached(uint8_t m_id) {
-	return target_approached(m_id) && (motor[m_id].stab_count == STAB_COUNT_MAX);
-}
-
-static void check_pos_stability(uint8_t m_id) {
 	struct motor_conf_t *mc = &motor[m_id];
-	if (target_approached(m_id)) {
-		if (mc->stab_count != STAB_COUNT_MAX) {
-			mc->stab_count++;
-		}
-	} else {
-		mc->stab_count = 0;
-	}
+	return target_approached(m_id) && (mc->dir == MOTOR_DIR_STOPPED) && (now() > mc->last_movement + 3);
 }
 
 static void set_motor(uint8_t m_id) {
@@ -192,7 +195,6 @@ static void set_motor(uint8_t m_id) {
 			check_sensors(m_id);
 			motor_set_speed(m_id, approach_speed(m_id));
 			motor_set_direction(m_id, mc->dir);
-			check_pos_stability(m_id);
 			break;
 		default:
 			/* failsafe, stop everything */
@@ -319,6 +321,11 @@ int main(void) {
 	DDRD |= (1 << PD5);
 
 	TCCR0B = (1 << CS00) | (0 << CS01) | (1 << CS02);
+
+	/* configure timer 1 compare interrupt for 0.01 second intervals (cs) */
+	TCCR1B = (0 << CS10) | (1 << CS11) | (0 << CS12);
+	OCR1A = 0x2710;
+	TIMSK = (1<<OCIE1A);
 
 	/* prepare interrupts for encoder input */
 
