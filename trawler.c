@@ -21,6 +21,8 @@
 #define POS_UNKNOWN ((motor_pos_t)0xFFFF)
 #define POS_TRANSIT (POS_MAX/2)
 
+#define DEFAULT_POS_TOLERANCE 5
+
 #define TWI_BASE_ADDRESS (~0xF7)
 
 static struct motor_conf_t motor[N_MOTORS];
@@ -140,10 +142,8 @@ static uint8_t approach_speed(uint8_t m_id) {
 	return 0xFF;
 }
 
-#define TARGET_PRECISION_TOLERANCE 5
-
 static uint8_t target_approached(uint8_t m_id) {
-	return (distance_to_target(m_id) < TARGET_PRECISION_TOLERANCE);
+	return (distance_to_target(m_id) < motor[m_id].pos_tolerance);
 }
 
 static void check_target_direction(uint8_t m_id) {
@@ -241,6 +241,8 @@ uint8_t twiReadCallback(uint8_t addr, uint8_t counter) {
 			return getByte(&twi_buf[0], sizeof(mc->odometer), counter);
 		case CMD_ADDR_TARGET_REACHED:
 			return target_reached(m_id);
+		case CMD_ADDR_POS_TOLERANCE:
+			return mc->pos_tolerance;
 	}
 	return 0;
 }
@@ -257,6 +259,7 @@ void twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 				case MOTOR_MODE_ENCODER:
 					mc->speed = 0;
 					mc->pos = POS_UNKNOWN;
+					mc->pos_tolerance = DEFAULT_POS_TOLERANCE;
 					mc->flags = 0;
 					mc->enc_dir = MOTOR_DIR_STOPPED;
 					mc->dir = MOTOR_DIR_STOPPED;
@@ -278,6 +281,9 @@ void twiWriteCallback(uint8_t addr, uint8_t counter, uint8_t data) {
 			mc->flags |= MOTOR_FLAG_CALIBRATING;
 			mc->pos = POS_UNKNOWN;
 			mc->target = POS_MIN;
+			break;
+		case CMD_ADDR_POS_TOLERANCE:
+			mc->pos_tolerance = data;
 			break;
 	}
 }
